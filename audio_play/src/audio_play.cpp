@@ -78,6 +78,33 @@ namespace audio_transport
 
             gst_bin_add(GST_BIN(_pipeline), _audio);
           }
+          else if (format == "opus")
+          {
+            gst_bin_add( GST_BIN(_pipeline), _source);
+            _decoder = gst_element_factory_make("decodebin", "decoder");
+            g_signal_connect(_decoder, "pad-added", G_CALLBACK(cb_newpad),this);
+            gst_bin_add( GST_BIN(_pipeline), _decoder);
+            gst_element_link(_source, _decoder);
+
+            _audio = gst_bin_new("audiobin");
+            _convert = gst_element_factory_make("audioconvert", "convert");
+            audiopad = gst_element_get_static_pad(_convert, "sink");
+
+            _filter = gst_element_factory_make("capsfilter", "filter");
+            g_object_set(G_OBJECT(_filter), "caps", caps, NULL);
+
+            _sink = gst_element_factory_make("autoaudiosink", "sink");
+            if (!device.empty()) {
+              g_object_set(G_OBJECT(_sink), "device", device.c_str(), NULL);
+            }
+            gst_bin_add_many( GST_BIN(_audio), _convert, _sink, NULL);
+            gst_element_link(_convert, _sink);
+            gst_element_add_pad(_audio, gst_ghost_pad_new("sink", audiopad));
+            gst_object_unref(audiopad);
+            gst_caps_unref(caps);
+
+            gst_bin_add(GST_BIN(_pipeline), _audio);
+          }
           else if (format == "wave")
           {
             g_object_set( G_OBJECT(_source), "caps", caps, NULL);
